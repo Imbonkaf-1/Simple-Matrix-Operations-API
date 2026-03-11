@@ -2,8 +2,8 @@
 #include<iostream> 
 #include<format>
 #include<vector> 
-#include "library/json.hpp"
-#include "library/httplib.h"
+#include "libraries/json.hpp"
+#include "libraries/httplib.h"
 using namespace std;
 
 using Matrix = vector<vector<int>>; 
@@ -18,8 +18,7 @@ struct Matrices {
 void matrixAddition(Matrices& matrices); 
 void matrixMultiplication(Matrices& matrices);
 void matrixSubtraction(Matrices& matrices);
-void displayMatrix(Matrices &matrices);
-void chooseTag(string& tag);
+void handleRequests(httplib::Server& server, Matrices& matrices);
 
 int main(int argc, char *argv[]) {
 
@@ -35,29 +34,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    string tag = "/subtract";
-    chooseTag(tag);
-
-    server.Post(tag, [&matrices, &tag](const httplib::Request& req, httplib::Response& res){
-        string body = req.body;
-        json input = json::parse (req.body);
-        matrices.A = input["A"].get<Matrix>();
-        matrices.B = input["B"].get<Matrix>();
-        if(tag == "/add"){
-            matrixAddition(matrices);
-        } else if (tag == "/subtract"){
-            matrixSubtraction(matrices);
-        } else if (tag == "/multiply"){
-            matrixMultiplication(matrices);
-        }
-        json result;
-        result["Result"] = matrices.C;
-        res.set_content(result.dump(), "application/json");
-    });
-
-    cout << "MAT Server starting on port: " << port << "\nFor " << tag <<  endl;
+    handleRequest(server, matrices);
+    cout << "MAT Server starting on port: " << port << "\nFor subtraction" <<  endl;
     server.listen("127.0.0.1", port);
-    matrixAddition(matrices);
 
     return 0; 
 } 
@@ -131,36 +110,38 @@ void matrixSubtraction(Matrices& matrices){
     }
 }
 
-void displayMatrix(Matrices &matrices){
+void handleRequest(httplib::Server& server, Matrices& matrices){
 
-    int rows_C = matrices.C.size();
-    int column_C = matrices.C[0].size();
+    server.Post("/multiply", [&matrices](const httplib::Request& req, httplib::Response& res){
+        string body = req.body;
+        json input = json::parse (req.body);
+        matrices.A = input["A"].get<Matrix>();
+        matrices.B = input["B"].get<Matrix>();
+        matrixMultiplication(matrices);
+        json result;
+        result["Result"] = matrices.C;
+        res.set_content(result.dump(), "application/json");
+    });
 
-    for(int i = 0; i < rows_C; i++){
-        for(int j = 0; j < column_C; j++){
-            cout << matrices.C[i][j];
-            cout << " ";
-        }
-        cout << "\n";
-    }
-}   
+    server.Post("/subtract", [&matrices](const httplib::Request& req, httplib::Response& res){
+        string body = req.body;
+        json input = json::parse (req.body);
+        matrices.A = input["A"].get<Matrix>();
+        matrices.B = input["B"].get<Matrix>();
+        matrixSubtraction(matrices);
+        json result;
+        result["Result"] = matrices.C;
+        res.set_content(result.dump(), "application/json");
+    });
 
-void chooseTag(string&tag){
-    int choice; 
-    cout << "choose what you want to do: \n1. Add\n2. Subtract\n3. Multiply\n";
-    cin >> choice;
-    switch(choice){
-        case 1:
-            tag = "/add";
-            break;
-        case 2:
-            tag = "/subtract";
-            break;
-        case 3:
-            tag = "/multiply";
-            break;
-        default:
-            cout << "Invalid";
-    }
-
+    server.Post("/add", [&matrices](const httplib::Request& req, httplib::Response& res){
+        string body = req.body;
+        json input = json::parse (req.body);
+        matrices.A = input["A"].get<Matrix>();
+        matrices.B = input["B"].get<Matrix>();
+        matrixAddition(matrices);
+        json result;
+        result["Result"] = matrices.C;
+        res.set_content(result.dump(), "application/json");
+    });    
 }
